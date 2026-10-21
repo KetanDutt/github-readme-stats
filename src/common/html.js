@@ -5,11 +5,11 @@
  *
  * @see https://stackoverflow.com/a/48073476/10629172
  *
- * @param {string} str String to encode.
+ * @param {string | number | null | undefined} str String to encode.
  * @returns {string} Encoded string.
  */
 const encodeHTML = (str) => {
-  return str
+  return String(str ?? "")
     .replace(/[\u00A0-\u9999<>&](?!#)/gim, (i) => {
       return "&#" + i.charCodeAt(0) + ";";
     })

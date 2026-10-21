@@ -136,6 +136,10 @@ const renderGistCard = (gistData, options = {}) => {
     .icon { fill: ${iconColor} }
   `);
   card.setHideBorder(hide_border);
+  card.setAccessibilityLabel({
+    title: header,
+    desc: `${desc}. ${languageName}. ${starsCount} stars, ${forksCount} forks.`,
+  });
 
   return card.render(`
     <text class="description" x="25" y="-5">

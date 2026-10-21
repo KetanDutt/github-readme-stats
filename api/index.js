@@ -3,19 +3,41 @@
 import { renderStatsCard } from "../src/cards/stats.js";
 import { guardAccess } from "../src/common/access.js";
 import {
+  buildErrorCard,
+  buildInputErrorCard,
+  setSvgContentType,
+} from "../src/common/api.js";
+import {
   CACHE_TTL,
   resolveCacheSeconds,
   setCacheHeaders,
   setErrorCacheHeaders,
 } from "../src/common/cache.js";
 import {
-  MissingParamError,
-  retrieveSecondaryMessage,
-} from "../src/common/error.js";
-import { parseArray, parseBoolean } from "../src/common/ops.js";
-import { renderError } from "../src/common/render.js";
+  normalizeString,
+  parseArray,
+  parseBoolean,
+  parseIntOrUndefined,
+} from "../src/common/ops.js";
 import { fetchStats } from "../src/fetchers/stats.js";
 import { isLocaleAvailable } from "../src/translations.js";
+
+const MIN_COMMITS_YEAR = 2008;
+
+/**
+ * Validates the `commits_year` query parameter.
+ *
+ * @param {number | undefined} commitsYear Parsed year.
+ * @returns {boolean} Whether the year is usable.
+ */
+const isValidCommitsYear = (commitsYear) => {
+  if (commitsYear === undefined) {
+    return true;
+  }
+  return (
+    commitsYear >= MIN_COMMITS_YEAR && commitsYear <= new Date().getFullYear()
+  );
+};
 
 // @ts-ignore
 export default async (req, res) => {
@@ -49,36 +71,42 @@ export default async (req, res) => {
     rank_icon,
     show,
   } = req.query;
-  res.setHeader("Content-Type", "image/svg+xml");
+
+  setSvgContentType(res);
+
+  const normalizedLocale = normalizeString(locale);
+
+  const colors = {
+    title_color,
+    text_color,
+    bg_color,
+    border_color,
+    theme,
+  };
 
   const access = guardAccess({
     res,
     id: username,
     type: "username",
-    colors: {
-      title_color,
-      text_color,
-      bg_color,
-      border_color,
-      theme,
-    },
+    colors,
   });
   if (!access.isPassed) {
     return access.result;
   }
 
-  if (locale && !isLocaleAvailable(locale)) {
+  if (normalizedLocale && !isLocaleAvailable(normalizedLocale)) {
     return res.send(
-      renderError({
-        message: "Something went wrong",
-        secondaryMessage: "Language not found",
-        renderOptions: {
-          title_color,
-          text_color,
-          bg_color,
-          border_color,
-          theme,
-        },
+      buildInputErrorCard({ colors, secondaryMessage: "Locale not found" }),
+    );
+  }
+
+  const parsedCommitsYear = parseIntOrUndefined(commits_year);
+
+  if (!isValidCommitsYear(parsedCommitsYear)) {
+    return res.send(
+      buildInputErrorCard({
+        colors,
+        secondaryMessage: `Incorrect commits_year input, it must be between ${MIN_COMMITS_YEAR} and ${new Date().getFullYear()}`,
       }),
     );
   }
@@ -93,7 +121,7 @@ export default async (req, res) => {
         showStats.includes("prs_merged_percentage"),
       showStats.includes("discussions_started"),
       showStats.includes("discussions_answered"),
-      parseInt(commits_year, 10),
+      parsedCommitsYear,
     );
     const cacheSeconds = resolveCacheSeconds({
       requested: parseInt(cache_seconds, 10),
@@ -110,10 +138,10 @@ export default async (req, res) => {
         show_icons: parseBoolean(show_icons),
         hide_title: parseBoolean(hide_title),
         hide_border: parseBoolean(hide_border),
-        card_width: parseInt(card_width, 10),
+        card_width: parseIntOrUndefined(card_width),
         hide_rank: parseBoolean(hide_rank),
         include_all_commits: parseBoolean(include_all_commits),
-        commits_year: parseInt(commits_year, 10),
+        commits_year: parsedCommitsYear,
         line_height,
         title_color,
         ring_color,
@@ -126,8 +154,8 @@ export default async (req, res) => {
         border_radius,
         border_color,
         number_format,
-        number_precision: parseInt(number_precision, 10),
-        locale: locale ? locale.toLowerCase() : null,
+        number_precision: parseIntOrUndefined(number_precision),
+        locale: normalizedLocale ? normalizedLocale.toLowerCase() : null,
         disable_animations: parseBoolean(disable_animations),
         rank_icon,
         show: showStats,
@@ -135,33 +163,6 @@ export default async (req, res) => {
     );
   } catch (err) {
     setErrorCacheHeaders(res);
-    if (err instanceof Error) {
-      return res.send(
-        renderError({
-          message: err.message,
-          secondaryMessage: retrieveSecondaryMessage(err),
-          renderOptions: {
-            title_color,
-            text_color,
-            bg_color,
-            border_color,
-            theme,
-            show_repo_link: !(err instanceof MissingParamError),
-          },
-        }),
-      );
-    }
-    return res.send(
-      renderError({
-        message: "An unknown error occurred",
-        renderOptions: {
-          title_color,
-          text_color,
-          bg_color,
-          border_color,
-          theme,
-        },
-      }),
-    );
+    return res.send(buildErrorCard({ err, colors }));
   }
 };

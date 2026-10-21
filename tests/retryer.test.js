@@ -72,12 +72,46 @@ describe("Test Retryer", () => {
   });
 
   it("retryer should throw specific error if maximum retries reached", async () => {
+    expect.assertions(2);
     try {
       await retryer(fetcherFail, {});
     } catch (err) {
-      expect(fetcherFail).toHaveBeenCalledTimes(RETRIES + 1);
+      // One attempt per configured token, without an extra attempt using an
+      // undefined token.
+      expect(fetcherFail).toHaveBeenCalledTimes(RETRIES);
       // @ts-ignore
       expect(err.message).toBe("Downtime due to GitHub API rate limiting");
+    }
+  });
+
+  it("retryer should only use the configured PATs", async () => {
+    const originalPAT = process.env.PAT_1;
+    process.env.PAT_1 = "token";
+    try {
+      await expect(retryer(fetcherFail, {})).rejects.toThrow(
+        "Downtime due to GitHub API rate limiting",
+      );
+      expect(fetcherFail).toHaveBeenCalledTimes(1);
+    } finally {
+      if (originalPAT === undefined) {
+        delete process.env.PAT_1;
+      } else {
+        process.env.PAT_1 = originalPAT;
+      }
+    }
+  });
+
+  it("retryer should throw if no tokens are configured", async () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+    // @ts-ignore
+    process.env.NODE_ENV = "production";
+    try {
+      await expect(retryer(fetcher, {})).rejects.toThrow(
+        "No GitHub API tokens found",
+      );
+    } finally {
+      // @ts-ignore
+      process.env.NODE_ENV = originalNodeEnv;
     }
   });
 });

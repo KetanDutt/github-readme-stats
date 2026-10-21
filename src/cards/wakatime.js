@@ -3,7 +3,7 @@
 import { Card } from "../common/Card.js";
 import { getCardColors } from "../common/color.js";
 import { I18n } from "../common/I18n.js";
-import { clampValue, lowercaseTrim } from "../common/ops.js";
+import { lowercaseTrim, parseIntOrUndefined } from "../common/ops.js";
 import { createProgressNode, flexLayout } from "../common/render.js";
 import { wakatimeCardLocales } from "../translations.js";
 
@@ -174,12 +174,18 @@ const createTextNode = ({
  */
 const recalculatePercentages = (languages) => {
   const totalSum = languages.reduce(
-    (totalSum, language) => totalSum + language.percent,
+    (totalSum, language) => totalSum + (language.percent || 0),
     0,
   );
+
+  // Avoid dividing by zero (all languages at 0%) which would produce NaN.
+  if (totalSum <= 0) {
+    return;
+  }
+
   const weight = +(100 / totalSum).toFixed(2);
   languages.forEach((language) => {
-    language.percent = +(language.percent * weight).toFixed(2);
+    language.percent = +((language.percent || 0) * weight).toFixed(2);
   });
 };
 
@@ -244,7 +250,7 @@ const normalizeCardWidth = ({ value, layout }) => {
  * @returns {string} WakaTime card SVG.
  */
 const renderWakatimeCard = (stats = {}, options = { hide: [] }) => {
-  let { languages = [] } = stats;
+  let languages = Array.isArray(stats.languages) ? stats.languages : [];
   const {
     hide_title = false,
     hide_border = false,
@@ -279,7 +285,17 @@ const renderWakatimeCard = (stats = {}, options = { hide: [] }) => {
 
   // Since the percentages are sorted in descending order, we can just
   // slice from the beginning without sorting.
-  languages = languages.slice(0, langs_count);
+  const parsedLangsCount = parseIntOrUndefined(langs_count);
+  const langsCount =
+    parsedLangsCount !== undefined && parsedLangsCount > 0
+      ? parsedLangsCount
+      : languages.length;
+
+  // Clone the language objects before recalculating percentages so that the
+  // caller's data (which may be reused) is never mutated.
+  languages = languages
+    .slice(0, langsCount)
+    .map((language) => ({ ...language }));
   recalculatePercentages(languages);
 
   const i18n = new I18n({
@@ -287,9 +303,11 @@ const renderWakatimeCard = (stats = {}, options = { hide: [] }) => {
     translations: wakatimeCardLocales,
   });
 
-  const lheight = parseInt(String(line_height), 10);
-
-  const langsCount = clampValue(langs_count, 1, langs_count);
+  const parsedLineHeight = parseIntOrUndefined(line_height);
+  const lheight =
+    parsedLineHeight !== undefined && parsedLineHeight > 0
+      ? parsedLineHeight
+      : DEFAULT_LINE_HEIGHT;
 
   // returns theme based colors with proper overrides and defaults
   const { titleColor, textColor, iconColor, bgColor, borderColor } =
@@ -305,6 +323,12 @@ const renderWakatimeCard = (stats = {}, options = { hide: [] }) => {
   const filteredLanguages = languages
     .filter((language) => language.hours || language.minutes)
     .slice(0, langsCount);
+
+  const noActivityText = stats.is_coding_activity_visible
+    ? stats.is_other_usage_visible
+      ? i18n.t("wakatimecard.nocodingactivity")
+      : i18n.t("wakatimecard.nocodedetails")
+    : i18n.t("wakatimecard.notpublic");
 
   // Calculate the card height depending on how many items there are
   // but if rank circle is visible clamp the minimum height to `150`
@@ -367,11 +391,7 @@ const renderWakatimeCard = (stats = {}, options = { hide: [] }) => {
           : noCodingActivityNode({
               // @ts-ignore
               color: textColor,
-              text: stats.is_coding_activity_visible
-                ? stats.is_other_usage_visible
-                  ? i18n.t("wakatimecard.nocodingactivity")
-                  : i18n.t("wakatimecard.nocodedetails")
-                : i18n.t("wakatimecard.notpublic"),
+              text: noActivityText,
             })
       }
     `;
@@ -397,11 +417,7 @@ const renderWakatimeCard = (stats = {}, options = { hide: [] }) => {
             noCodingActivityNode({
               // @ts-ignore
               color: textColor,
-              text: stats.is_coding_activity_visible
-                ? stats.is_other_usage_visible
-                  ? i18n.t("wakatimecard.nocodingactivity")
-                  : i18n.t("wakatimecard.nocodedetails")
-                : i18n.t("wakatimecard.notpublic"),
+              text: noActivityText,
             }),
           ],
       gap: lheight,
@@ -439,6 +455,21 @@ const renderWakatimeCard = (stats = {}, options = { hide: [] }) => {
     card.disableAnimations();
   }
 
+  card.setAccessibilityLabel({
+    title: custom_title || titleText,
+    desc: filteredLanguages.length
+      ? filteredLanguages
+          .map(
+            (language) =>
+              `${language.name}: ${formatLanguageValue({
+                display_format,
+                lang: language,
+              })}`,
+          )
+          .join(", ")
+      : noActivityText,
+  });
+
   card.setHideBorder(hide_border);
   card.setHideTitle(hide_title);
   card.setCSS(
@@ -449,7 +480,7 @@ const renderWakatimeCard = (stats = {}, options = { hide: [] }) => {
         width: 0;
       }
       to {
-        width: calc(100%-100px);
+        width: calc(100% - 100px);
       }
     }
     @keyframes growWidthAnimation {

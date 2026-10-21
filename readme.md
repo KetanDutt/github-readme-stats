@@ -24,10 +24,65 @@
 <p align="center">Love the project? Please consider <a href="https://www.paypal.me/anuraghazra">donating</a> to support the original creator!</p>
 
 > [!CAUTION]
-> **This repository is no longer maintained. Please use the successor project [GitHub Stats Extended](https://github.com/stats-organization/github-stats-extended) instead! GitHub Stats Extended is an actively maintained fork of this repository with additional features and improved stability. Alternatively you can also use [GitHub Readme Stats Action](https://github.com/stats-organization/github-readme-stats-action).**
+> **The upstream `anuraghazra/github-readme-stats` repository is no longer maintained.** This fork continues to receive maintenance, bug fixes and documentation improvements. The public Vercel instance below belongs to the upstream project; for production use, [self-host your own instance](./docs/deployment.md). You can also use the successor project [GitHub Stats Extended](https://github.com/stats-organization/github-stats-extended) or [GitHub Readme Stats Action](https://github.com/stats-organization/github-readme-stats-action).
 
 > [!NOTE]
 > This project deliberately has **no CI and no GitHub Actions workflows**, and none should ever be added. All tests, linting, and formatting checks are run locally. See [CONTRIBUTING.md](./CONTRIBUTING.md#no-ci-and-no-github-actions-project-policy).
+
+## Documentation
+
+Full documentation lives in the [`docs/`](./docs) folder:
+
+| Document | Description |
+| :-- | :-- |
+| [API reference](./docs/api-reference.md) | Endpoints, query parameters, limits and error messages. |
+| [Configuration](./docs/configuration.md) | Environment variables, themes, locales and caching. |
+| [Deployment](./docs/deployment.md) | Vercel, Docker, bare Node.js and production checklist. |
+| [Architecture](./docs/architecture.md) | Request lifecycle, module map and extension guides. |
+| [Development](./docs/development.md) | Local setup, npm scripts, tests and benchmarks. |
+| [Performance](./docs/performance.md) | Caching layers, keep-alive, compression and tuning. |
+| [Security](./docs/security.md) | Token handling, input validation and SSRF protections. |
+| [Troubleshooting](./docs/troubleshooting.md) | Fixes for the most common errors. |
+
+## Self-hosting quick start
+
+```bash
+npm install
+cp .env.example .env     # add at least PAT_1=ghp_...
+npm start                # http://localhost:9000
+```
+
+* `http://localhost:9000` — dashboard with live example cards
+* `http://localhost:9000/health` — JSON health probe for orchestrators
+* `http://localhost:9000/api?username=your-name` — a card
+
+A production-ready `Dockerfile` and `docker-compose.yml` are included, see
+[Deployment](./docs/deployment.md). The bundled server adds gzip compression,
+security headers, an in-memory SVG cache and graceful shutdown on top of the
+same handlers used by the Vercel functions.
+
+## What is improved in this fork (v1.1.0)
+
+* **Bug fixes** — repeated query parameters (`?hide=a&hide=b`, `?locale=a&locale=b`)
+  no longer crash handlers; invalid `theme`, `line_height`, `langs_count`,
+  `number_format` and language weights no longer produce broken/NaN SVGs;
+  WakaTime requests without a response no longer throw `TypeError`; token
+  retries no longer attempt an undefined `PAT_N`; language counts are now correct
+  for interleaved repositories; hidden list items no longer shift layout sizes;
+  error cards use a solid fallback for gradient backgrounds.
+* **Robustness** — every response payload is validated before use, unknown
+  locales/themes fail gracefully, `commits_year` is range-checked, and
+  WakaTime's `api_domain` is validated against SSRF.
+* **Performance** — keep-alive HTTP agents and request timeouts, gzip/brotli
+  compression, an LRU in-memory SVG cache with `/health` statistics, and
+  cached-token resolution instead of module-load-time PAT discovery.
+* **New endpoints** — `/api/status/up` and `/api/status/pat-info` are now
+  exposed by the local server, plus `/health` and a landing page at `/`.
+* **Accessibility** — all cards expose `role="img"`, `<title>` and `<desc>`
+  labels; `aria-labelledby` now references the title as well.
+* **Cleanup** — removed unused CI-only theme automation scripts and dead
+  `.eslintrc.json`, added docs, Docker support, `.env.example`, coverage
+  thresholds and a shared API response layer.
 
 <details>
 <summary>Click here to view the outdated documentation. Kept for reference only.</summary>
@@ -982,13 +1037,16 @@ This way of using GRS is not officially supported and was added to cater to some
 <details>
 <summary><b>:hammer_and_wrench: Step-by-step guide for deploying on other platforms</b></summary>
 
-1.  Fork or clone this repo as per your needs
-2.  Move `express` from the devDependencies to the dependencies section of `package.json`
-    <https://github.com/anuraghazra/github-readme-stats/blob/ba7c2f8b55eac8452e479c8bd38b044d204d0424/package.json#L54-L61>
-3.  Run `npm i` if needed (initial setup)
-4.  Run `node express.js` to start the server, or set the entry point to `express.js` in `package.json` if you're deploying on a managed service
-    <https://github.com/anuraghazra/github-readme-stats/blob/ba7c2f8b55eac8452e479c8bd38b044d204d0424/package.json#L11>
-5.  You're done 🎉
+1.  Fork or clone this repo as per your needs.
+2.  Install dependencies with `npm ci --omit=dev` (Express is already a runtime dependency).
+3.  Create a `.env` file with at least `PAT_1=...` (see [`.env.example`](./.env.example)).
+4.  Run `npm start` (or `node express.js`) to start the server, or point your
+    managed service at the `start` script.
+5.  Verify the deployment with `GET /health`.
+6.  You're done 🎉
+
+Full details, including Docker, systemd and platform notes, are in
+[docs/deployment.md](./docs/deployment.md).
     </details>
 
 ### Available environment variables
@@ -1029,8 +1087,41 @@ GitHub Readme Stats provides several environment variables that can be used to c
       <td>Enables fetching all starred repositories for accurate star counts, especially for users with more than 100 repositories. This may increase response times and API points usage, so it is disabled on the public instance.</td>
       <td><code>true</code> or <code>false</code></td>
     </tr>
+    <tr>
+      <td><code>WAKATIME_API_DOMAIN</code></td>
+      <td>Default hostname for the WakaTime API, useful for WakaTime-compatible servers such as Wakapi. Validated as a public hostname.</td>
+      <td>Hostname, e.g. <code>wakapi.dev</code></td>
+    </tr>
+    <tr>
+      <td><code>GITHUB_API_TIMEOUT_MS</code></td>
+      <td>Timeout for outbound GitHub and WakaTime requests. Prevents stalled requests from occupying a serverless invocation.</td>
+      <td>Positive integer (default <code>10000</code>)</td>
+    </tr>
+    <tr>
+      <td><code>MEMORY_CACHE</code></td>
+      <td>Enables the in-memory SVG cache in the bundled Express server. Set to <code>false</code> to always render fresh cards.</td>
+      <td><code>true</code> or <code>false</code></td>
+    </tr>
+    <tr>
+      <td><code>MEMORY_CACHE_MAX_ENTRIES</code></td>
+      <td>Maximum number of rendered cards kept in the in-memory cache.</td>
+      <td>Positive integer (default <code>500</code>)</td>
+    </tr>
+    <tr>
+      <td><code>MEMORY_CACHE_TTL_SECONDS</code></td>
+      <td>Fallback TTL for cached cards when the response has no <code>Cache-Control</code> header.</td>
+      <td>Positive integer (default <code>300</code>)</td>
+    </tr>
+    <tr>
+      <td><code>PORT</code> / <code>NODE_ENV</code></td>
+      <td>Port and mode of the bundled Express server. <code>production</code> enables caching; <code>development</code> disables it.</td>
+      <td>Port number / <code>production</code> or <code>development</code></td>
+    </tr>
   </tbody>
 </table>
+
+The complete reference, including `PAT_N` rotation, whitelists and the memory
+cache, is in [docs/configuration.md](./docs/configuration.md).
 
 See [the Vercel documentation](https://vercel.com/docs/concepts/projects/environment-variables) on adding these environment variables to your Vercel instance.
 

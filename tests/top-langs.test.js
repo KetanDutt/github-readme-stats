@@ -170,6 +170,7 @@ describe("Test /api/top-langs", () => {
       renderError({
         message: "Something went wrong",
         secondaryMessage: "Incorrect layout input",
+        renderOptions: { show_repo_link: false },
       }),
     );
   });
@@ -218,6 +219,7 @@ describe("Test /api/top-langs", () => {
       renderError({
         message: "Something went wrong",
         secondaryMessage: "Locale not found",
+        renderOptions: { show_repo_link: false },
       }),
     );
   });
@@ -242,6 +244,71 @@ describe("Test /api/top-langs", () => {
       `max-age=${CACHE_TTL.TOP_LANGS_CARD.DEFAULT}, ` +
         `s-maxage=${CACHE_TTL.TOP_LANGS_CARD.DEFAULT}, ` +
         `stale-while-revalidate=${DURATIONS.ONE_DAY}`,
+    );
+  });
+
+  it("should render error card for negative language weights", async () => {
+    const req = {
+      query: { username: "anuraghazra", size_weight: "-1" },
+    };
+    const res = { setHeader: jest.fn(), send: jest.fn() };
+
+    await topLangs(req, res);
+
+    expect(res.send).toHaveBeenCalledWith(
+      renderError({
+        message: "Something went wrong",
+        secondaryMessage: "Incorrect size_weight or count_weight input",
+        renderOptions: { show_repo_link: false },
+      }),
+    );
+  });
+
+  it("should fall back to the default weights for invalid values", async () => {
+    const req = {
+      query: {
+        username: "anuraghazra",
+        size_weight: "abc",
+        count_weight: "not-a-number",
+      },
+    };
+    const res = { setHeader: jest.fn(), send: jest.fn() };
+    mock.onPost("https://api.github.com/graphql").reply(200, data_langs);
+
+    await topLangs(req, res);
+
+    expect(res.send).toHaveBeenCalledWith(renderTopLanguages(langs, {}));
+  });
+
+  it("should render error card for an unsupported stats_format", async () => {
+    const req = {
+      query: { username: "anuraghazra", stats_format: "lines" },
+    };
+    const res = { setHeader: jest.fn(), send: jest.fn() };
+
+    await topLangs(req, res);
+
+    expect(res.send).toHaveBeenCalledWith(
+      renderError({
+        message: "Something went wrong",
+        secondaryMessage: "Incorrect stats_format input",
+        renderOptions: { show_repo_link: false },
+      }),
+    );
+  });
+
+  it("should accept hide values with spaces and repeated parameters", async () => {
+    const req = {
+      // @ts-ignore
+      query: { username: "anuraghazra", hide: ["javascript", "css"] },
+    };
+    const res = { setHeader: jest.fn(), send: jest.fn() };
+    mock.onPost("https://api.github.com/graphql").reply(200, data_langs);
+
+    await topLangs(req, res);
+
+    expect(res.send).toHaveBeenCalledWith(
+      renderTopLanguages(langs, { hide: ["javascript", "css"] }),
     );
   });
 });

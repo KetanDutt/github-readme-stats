@@ -7,6 +7,8 @@ import {
   chunkArray,
   parseEmojis,
   dateDiff,
+  parseIntOrUndefined,
+  parseFloatOrUndefined,
 } from "../src/common/ops.js";
 
 describe("Test ops.js", () => {
@@ -30,10 +32,34 @@ describe("Test ops.js", () => {
 
   it("should test parseArray", () => {
     expect(parseArray("a,b,c")).toEqual(["a", "b", "c"]);
-    expect(parseArray("a, b, c")).toEqual(["a", " b", " c"]); // preserves spaces
+    // whitespace around values is trimmed
+    expect(parseArray("a, b, c")).toEqual(["a", "b", "c"]);
+    // empty entries are dropped
+    expect(parseArray("a,,c,")).toEqual(["a", "c"]);
     expect(parseArray("")).toEqual([]);
     // @ts-ignore
     expect(parseArray(undefined)).toEqual([]);
+    // repeated query parameters are returned as arrays by Express
+    // @ts-ignore
+    expect(parseArray(["a", "b"])).toEqual(["a", "b"]);
+  });
+
+  it("should test parseIntOrUndefined", () => {
+    expect(parseIntOrUndefined("42")).toBe(42);
+    expect(parseIntOrUndefined("4.9")).toBe(4);
+    expect(parseIntOrUndefined(7)).toBe(7);
+    expect(parseIntOrUndefined("abc")).toBe(undefined);
+    expect(parseIntOrUndefined("")).toBe(undefined);
+    expect(parseIntOrUndefined(undefined)).toBe(undefined);
+    expect(parseIntOrUndefined(null)).toBe(undefined);
+  });
+
+  it("should test parseFloatOrUndefined", () => {
+    expect(parseFloatOrUndefined("1.5")).toBe(1.5);
+    expect(parseFloatOrUndefined(0)).toBe(0);
+    expect(parseFloatOrUndefined("abc")).toBe(undefined);
+    expect(parseFloatOrUndefined("")).toBe(undefined);
+    expect(parseFloatOrUndefined(undefined)).toBe(undefined);
   });
 
   it("should test clampValue", () => {

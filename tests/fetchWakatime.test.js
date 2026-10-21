@@ -2,7 +2,11 @@ import { afterEach, describe, expect, it } from "@jest/globals";
 import "@testing-library/jest-dom";
 import axios from "axios";
 import MockAdapter from "axios-mock-adapter";
-import { fetchWakatimeStats } from "../src/fetchers/wakatime.js";
+import {
+  DEFAULT_API_DOMAIN,
+  fetchWakatimeStats,
+  sanitizeApiDomain,
+} from "../src/fetchers/wakatime.js";
 
 const mock = new MockAdapter(axios);
 
@@ -129,6 +133,39 @@ describe("WakaTime fetcher", () => {
     await expect(fetchWakatimeStats({ username: "noone" })).rejects.toThrow(
       "Could not resolve to a User with the login of 'noone'",
     );
+  });
+
+  it("should throw a generic error on network failures", async () => {
+    mock.onGet(/https:\/\/wakatime\.com\/api/).networkError();
+
+    await expect(
+      fetchWakatimeStats({ username: "anuraghazra" }),
+    ).rejects.toThrow("Could not fetch WakaTime stats.");
+  });
+
+  it("should throw a generic error on upstream server errors", async () => {
+    mock.onGet(/https:\/\/wakatime\.com\/api/).reply(502, {});
+
+    await expect(
+      fetchWakatimeStats({ username: "anuraghazra" }),
+    ).rejects.toThrow("Could not fetch WakaTime stats.");
+  });
+
+  it("should sanitize the api_domain parameter", () => {
+    expect(sanitizeApiDomain(undefined)).toBe(DEFAULT_API_DOMAIN);
+    expect(sanitizeApiDomain("wakapi.dev")).toBe("wakapi.dev");
+    expect(sanitizeApiDomain("https://wakapi.dev/")).toBe("wakapi.dev");
+    expect(sanitizeApiDomain("WakaPi.Dev")).toBe("wakapi.dev");
+
+    // SSRF attempts fall back to the default domain.
+    expect(sanitizeApiDomain("localhost")).toBe(DEFAULT_API_DOMAIN);
+    expect(sanitizeApiDomain("127.0.0.1")).toBe(DEFAULT_API_DOMAIN);
+    expect(sanitizeApiDomain("169.254.169.254")).toBe(DEFAULT_API_DOMAIN);
+    expect(sanitizeApiDomain("wakapi.dev:8080")).toBe(DEFAULT_API_DOMAIN);
+    expect(sanitizeApiDomain("http://internal-host/admin")).toBe(
+      DEFAULT_API_DOMAIN,
+    );
+    expect(sanitizeApiDomain("not a domain")).toBe(DEFAULT_API_DOMAIN);
   });
 });
 

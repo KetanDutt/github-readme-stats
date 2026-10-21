@@ -25,6 +25,9 @@ const icons = {
  * @returns {string} - The SVG code of the rank icon
  */
 const rankIcon = (rankIcon, rankLevel, percentile) => {
+  const level = rankLevel || "?";
+  const rankPercentile = Number.isFinite(percentile) ? percentile : 0;
+
   switch (rankIcon) {
     case "github":
       return `
@@ -38,14 +41,14 @@ const rankIcon = (rankIcon, rankLevel, percentile) => {
           Top
         </text>
         <text x="-5" y="12" alignment-baseline="central" dominant-baseline="central" text-anchor="middle" data-testid="percentile-rank-value" class="rank-percentile-text">
-          ${percentile.toFixed(1)}%
+          ${rankPercentile.toFixed(1)}%
         </text>
       `;
     case "default":
     default:
       return `
         <text x="-5" y="3" alignment-baseline="central" dominant-baseline="central" text-anchor="middle" data-testid="level-rank-icon">
-          ${rankLevel}
+          ${level}
         </text>
       `;
   }

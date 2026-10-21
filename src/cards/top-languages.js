@@ -491,7 +491,7 @@ const renderDonutVerticalLayout = (langs, totalLanguageSize, statsFormat) => {
           cy="100"
           r="${radius}"
           fill="transparent"
-          stroke="${lang.color}"
+          stroke="${lang.color || DEFAULT_LANG_COLOR}"
           stroke-width="25"
           stroke-dasharray="${totalCircleLength}"
           stroke-dashoffset="${indent}"
@@ -560,7 +560,7 @@ const renderPieLayout = (langs, totalLanguageSize, statsFormat) => {
           cy="${centerY}"
           r="${radius}"
           stroke="none"
-          fill="${lang.color}"
+          fill="${lang.color || DEFAULT_LANG_COLOR}"
           data-testid="lang-pie"
           size="100"
         />
@@ -593,7 +593,7 @@ const renderPieLayout = (langs, totalLanguageSize, statsFormat) => {
           data-testid="lang-pie"
           size="${percentage}"
           d="M ${centerX} ${centerY} L ${startPoint.x} ${startPoint.y} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${endPoint.x} ${endPoint.y} Z"
-          fill="${lang.color}"
+          fill="${lang.color || DEFAULT_LANG_COLOR}"
         />
       </g>
     `);
@@ -677,7 +677,7 @@ const renderDonutLayout = (langs, width, totalLanguageSize, statsFormat) => {
   const radius = centerX - 60;
   const strokeWidth = 12;
 
-  const colors = langs.map((lang) => lang.color);
+  const colors = langs.map((lang) => lang.color || DEFAULT_LANG_COLOR);
   const langsPercents = langs.map((lang) =>
     parseFloat(((lang.size / totalLanguageSize) * 100).toFixed(2)),
   );
@@ -889,6 +889,21 @@ const renderTopLanguages = (topLangs, options = {}) => {
     card.disableAnimations();
   }
 
+  const safeTotalSize = totalLanguageSize || 1;
+  const accessibilityDesc = langs.length
+    ? langs
+        .map(
+          (lang) =>
+            `${lang.name} ${((lang.size / safeTotalSize) * 100).toFixed(2)}%`,
+        )
+        .join(", ")
+    : i18n.t("langcard.nodata");
+
+  card.setAccessibilityLabel({
+    title: custom_title || i18n.t("langcard.title"),
+    desc: accessibilityDesc,
+  });
+
   card.setHideBorder(hide_border);
   card.setHideTitle(hide_title);
   card.setCSS(
@@ -898,7 +913,7 @@ const renderTopLanguages = (topLangs, options = {}) => {
         width: 0;
       }
       to {
-        width: calc(100%-100px);
+        width: calc(100% - 100px);
       }
     }
     @keyframes growWidthAnimation {

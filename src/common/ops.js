@@ -24,16 +24,23 @@ const parseBoolean = (value) => {
 };
 
 /**
- * Parse string to array of strings.
+ * Parse a comma separated string (or an already parsed array) into a clean
+ * array of strings. Values are trimmed and empty entries are dropped, so that
+ * `?hide=stars, prs` behaves the same as `?hide=stars,prs`.
  *
- * @param {string} str The string to parse.
+ * @param {string | string[] | undefined | null} str The string (or array) to parse.
  * @returns {string[]} The array of strings.
  */
 const parseArray = (str) => {
   if (!str) {
     return [];
   }
-  return str.split(",");
+
+  // Express/Node query parsers return an array when a parameter is repeated,
+  // e.g. `?hide=stars&hide=prs`. Handle that instead of crashing on `.split`.
+  const values = Array.isArray(str) ? str : String(str).split(",");
+
+  return values.map((value) => String(value).trim()).filter(Boolean);
 };
 
 /**
@@ -50,6 +57,56 @@ const clampValue = (number, min, max) => {
     return min;
   }
   return Math.max(min, Math.min(number, max));
+};
+
+/**
+ * Normalize a query parameter into a single string.
+ *
+ * Express/Node return an array when the same query parameter is repeated
+ * (`?locale=en&locale=fr`). Only the first value is meaningful for scalar
+ * options, and non-string values are ignored instead of crashing the handler.
+ *
+ * @param {string | string[] | undefined | null} value The value to normalize.
+ * @returns {string | undefined} The first string value, if any.
+ */
+const normalizeString = (value) => {
+  if (typeof value === "string") {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return value.find((item) => typeof item === "string");
+  }
+  return undefined;
+};
+
+/**
+ * Parse a value into an integer, returning `undefined` for anything that is
+ * not a finite number. This keeps NaN out of generated SVG markup.
+ *
+ * @param {string | number | undefined | null} value The value to parse.
+ * @returns {number | undefined} The parsed integer or undefined.
+ */
+const parseIntOrUndefined = (value) => {
+  if (value === undefined || value === null || value === "") {
+    return undefined;
+  }
+  const parsed = parseInt(String(value), 10);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
+/**
+ * Parse a value into a finite float, returning `undefined` for anything that
+ * is not a finite number.
+ *
+ * @param {string | number | undefined | null} value The value to parse.
+ * @returns {number | undefined} The parsed float or undefined.
+ */
+const parseFloatOrUndefined = (value) => {
+  if (value === undefined || value === null || value === "") {
+    return undefined;
+  }
+  const parsed = Number.parseFloat(String(value));
+  return Number.isFinite(parsed) ? parsed : undefined;
 };
 
 /**
@@ -121,4 +178,7 @@ export {
   chunkArray,
   parseEmojis,
   dateDiff,
+  parseIntOrUndefined,
+  parseFloatOrUndefined,
+  normalizeString,
 };

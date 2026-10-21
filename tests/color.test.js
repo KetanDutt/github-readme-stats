@@ -73,4 +73,32 @@ describe("Test color.js", () => {
       borderColor: "#fff",
     });
   });
+
+  it("getCardColors: should fall back to the default theme for unknown themes", () => {
+    const colors = getCardColors({
+      // @ts-ignore
+      theme: "definitely-not-a-theme",
+    });
+
+    expect(colors).toStrictEqual({
+      titleColor: "#2f80ed",
+      textColor: "#434d58",
+      ringColor: "#2f80ed",
+      iconColor: "#4c71f2",
+      bgColor: "#fffefe",
+      borderColor: "#e4e2e2",
+    });
+  });
+
+  it("getCardColors: should ignore non-string color values", () => {
+    const colors = getCardColors({
+      // @ts-ignore
+      title_color: ["f00", "0f0"],
+      // @ts-ignore
+      theme: ["dark"],
+    });
+
+    expect(colors.titleColor).toBe("#2f80ed");
+    expect(colors.bgColor).toBe("#fffefe");
+  });
 });

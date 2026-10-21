@@ -1,6 +1,10 @@
 // @ts-check
 
-import { renderError } from "../src/common/render.js";
+import {
+  buildErrorCard,
+  buildInputErrorCard,
+  setSvgContentType,
+} from "../src/common/api.js";
 import { isLocaleAvailable } from "../src/translations.js";
 import { renderGistCard } from "../src/cards/gist.js";
 import { fetchGist } from "../src/fetchers/gist.js";
@@ -11,11 +15,7 @@ import {
   setErrorCacheHeaders,
 } from "../src/common/cache.js";
 import { guardAccess } from "../src/common/access.js";
-import {
-  MissingParamError,
-  retrieveSecondaryMessage,
-} from "../src/common/error.js";
-import { parseBoolean } from "../src/common/ops.js";
+import { normalizeString, parseBoolean } from "../src/common/ops.js";
 
 // @ts-ignore
 export default async (req, res) => {
@@ -34,37 +34,31 @@ export default async (req, res) => {
     hide_border,
   } = req.query;
 
-  res.setHeader("Content-Type", "image/svg+xml");
+  setSvgContentType(res);
+
+  const normalizedLocale = normalizeString(locale);
+
+  const colors = {
+    title_color,
+    text_color,
+    bg_color,
+    border_color,
+    theme,
+  };
 
   const access = guardAccess({
     res,
     id,
     type: "gist",
-    colors: {
-      title_color,
-      text_color,
-      bg_color,
-      border_color,
-      theme,
-    },
+    colors,
   });
   if (!access.isPassed) {
     return access.result;
   }
 
-  if (locale && !isLocaleAvailable(locale)) {
+  if (normalizedLocale && !isLocaleAvailable(normalizedLocale)) {
     return res.send(
-      renderError({
-        message: "Something went wrong",
-        secondaryMessage: "Language not found",
-        renderOptions: {
-          title_color,
-          text_color,
-          bg_color,
-          border_color,
-          theme,
-        },
-      }),
+      buildInputErrorCard({ colors, secondaryMessage: "Locale not found" }),
     );
   }
 
@@ -88,40 +82,13 @@ export default async (req, res) => {
         theme,
         border_radius,
         border_color,
-        locale: locale ? locale.toLowerCase() : null,
+        locale: normalizedLocale ? normalizedLocale.toLowerCase() : null,
         show_owner: parseBoolean(show_owner),
         hide_border: parseBoolean(hide_border),
       }),
     );
   } catch (err) {
     setErrorCacheHeaders(res);
-    if (err instanceof Error) {
-      return res.send(
-        renderError({
-          message: err.message,
-          secondaryMessage: retrieveSecondaryMessage(err),
-          renderOptions: {
-            title_color,
-            text_color,
-            bg_color,
-            border_color,
-            theme,
-            show_repo_link: !(err instanceof MissingParamError),
-          },
-        }),
-      );
-    }
-    return res.send(
-      renderError({
-        message: "An unknown error occurred",
-        renderOptions: {
-          title_color,
-          text_color,
-          bg_color,
-          border_color,
-          theme,
-        },
-      }),
-    );
+    return res.send(buildErrorCard({ err, colors }));
   }
 };

@@ -883,4 +883,29 @@ describe("Test renderTopLanguages", () => {
       "css 100.0 B",
     );
   });
+
+  it("should fall back to the default color when a language has no color", () => {
+    const langsWithoutColors = {
+      HTML: { color: null, name: "HTML", size: 200 },
+      javascript: { color: undefined, name: "javascript", size: 100 },
+    };
+
+    ["pie", "donut", "donut-vertical"].forEach((layout) => {
+      const card = renderTopLanguages(langsWithoutColors, { layout });
+      expect(card).not.toContain("undefined");
+      expect(card).toContain("#858585");
+    });
+  });
+
+  it("should not break when langs_count is not a number", () => {
+    const card = renderTopLanguages(langs, {
+      // @ts-ignore
+      langs_count: "abc",
+      layout: "compact",
+    });
+
+    expect(card).not.toContain("NaN");
+    // Invalid values fall back to the default language count.
+    expect((document.body.innerHTML = card)).toBeTruthy();
+  });
 });
