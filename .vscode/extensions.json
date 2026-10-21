@@ -3,7 +3,6 @@
         "yzhang.markdown-all-in-one",
         "esbenp.prettier-vscode",
         "dbaeumer.vscode-eslint",
-        "ms-azuretools.vscode-containers",
-        "github.vscode-github-actions"
+        "ms-azuretools.vscode-containers"
     ]
 }

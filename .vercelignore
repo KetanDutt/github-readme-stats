@@ -12,4 +12,3 @@ tests
 .eslintrc.json
 .prettierignore
 .pretterrc.json
-codecov.yml
