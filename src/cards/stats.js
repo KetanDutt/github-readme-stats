@@ -6,7 +6,7 @@ import { CustomError } from "../common/error.js";
 import { kFormatter } from "../common/fmt.js";
 import { I18n } from "../common/I18n.js";
 import { icons, rankIcon } from "../common/icons.js";
-import { clampValue } from "../common/ops.js";
+import { clampValue, parseIntOrUndefined } from "../common/ops.js";
 import { flexLayout, measureText } from "../common/render.js";
 import { statCardLocales, wakatimeCardLocales } from "../translations.js";
 
@@ -86,7 +86,8 @@ const createTextNode = ({
       ? clampValue(numberPrecision, 0, 2)
       : undefined;
   const kValue =
-    numberFormat.toLowerCase() === "long" || id === "prs_merged_percentage"
+    String(numberFormat ?? "short").toLowerCase() === "long" ||
+    id === "prs_merged_percentage"
       ? value
       : kFormatter(value, precision);
   const staggerDelay = (index + 3) * 150;
@@ -297,7 +298,11 @@ const renderStatsCard = (stats, options = {}) => {
     show = [],
   } = options;
 
-  const lheight = parseInt(String(line_height), 10);
+  const parsedLineHeight = parseIntOrUndefined(line_height);
+  const lheight =
+    parsedLineHeight !== undefined && parsedLineHeight > 0
+      ? parsedLineHeight
+      : 25;
 
   // returns theme based colors with proper overrides and defaults
   const { titleColor, iconColor, textColor, bgColor, borderColor, ringColor } =
@@ -450,7 +455,9 @@ const renderStatsCard = (stats, options = {}) => {
   );
 
   // the lower the user's percentile the better
-  const progress = 100 - rank.percentile;
+  const rankPercentile = rank?.percentile ?? 0;
+  const rankLevel = rank?.level ?? "?";
+  const progress = 100 - rankPercentile;
   const cssStyles = getStyles({
     titleColor,
     ringColor,
@@ -560,7 +567,7 @@ const renderStatsCard = (stats, options = {}) => {
         <circle class="rank-circle-rim" cx="-10" cy="8" r="40" />
         <circle class="rank-circle" cx="-10" cy="8" r="40" />
         <g class="rank-text">
-          ${rankIcon(rank_icon, rank?.level, rank?.percentile)}
+          ${rankIcon(rank_icon, rankLevel, rankPercentile)}
         </g>
       </g>`;
 
@@ -582,7 +589,7 @@ const renderStatsCard = (stats, options = {}) => {
     .join(", ");
 
   card.setAccessibilityLabel({
-    title: `${card.title}, Rank: ${rank.level}`,
+    title: `${card.title}, Rank: ${rankLevel}`,
     desc: labels,
   });
 

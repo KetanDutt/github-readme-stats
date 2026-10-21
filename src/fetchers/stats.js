@@ -9,9 +9,9 @@ import { logger } from "../common/log.js";
 import { excludeRepositories } from "../common/envs.js";
 import { CustomError, MissingParamError } from "../common/error.js";
 import { wrapTextMultiline } from "../common/fmt.js";
-import { request } from "../common/http.js";
+import { getNetworkOptions, request } from "../common/http.js";
 
-dotenv.config();
+dotenv.config({ quiet: true });
 
 // GraphQL queries.
 const GRAPHQL_REPOS_FIELD = `
@@ -132,12 +132,18 @@ const statsFetcher = async ({
       startTime,
     };
     let res = await retryer(fetcher, variables);
-    if (res.data.errors) {
+    if (res?.data?.errors) {
       return res;
     }
 
     // Store stats data.
-    const repoNodes = res.data.data.user.repositories.nodes;
+    const repoNodes = res?.data?.data?.user?.repositories?.nodes;
+    if (!Array.isArray(repoNodes)) {
+      throw new CustomError(
+        "Something went wrong while trying to retrieve the stats data using the GraphQL API.",
+        CustomError.GRAPHQL_ERROR,
+      );
+    }
     if (stats) {
       stats.data.data.user.repositories.nodes.push(...repoNodes);
     } else {
@@ -170,12 +176,15 @@ const statsFetcher = async ({
 const fetchTotalCommits = (variables, token) => {
   return axios({
     method: "get",
-    url: `https://api.github.com/search/commits?q=author:${variables.login}`,
+    url: `https://api.github.com/search/commits?q=author:${encodeURIComponent(
+      variables.login,
+    )}`,
     headers: {
       "Content-Type": "application/json",
       Accept: "application/vnd.github.cloak-preview",
       Authorization: `token ${token}`,
     },
+    ...getNetworkOptions(),
   });
 };
 
@@ -199,10 +208,12 @@ const totalCommitsFetcher = async (username) => {
     res = await retryer(fetchTotalCommits, { login: username });
   } catch (err) {
     logger.log(err);
-    throw new Error(err);
+    // Preserve the original error so that custom errors keep their
+    // secondary message (rate limiting, missing tokens, ...).
+    throw err;
   }
 
-  const totalCount = res.data.total_count;
+  const totalCount = res?.data?.total_count;
   if (!totalCount || isNaN(totalCount)) {
     throw new CustomError(
       "Could not fetch total commits.",
@@ -261,7 +272,7 @@ const fetchStats = async (
   });
 
   // Catch GraphQL errors.
-  if (res.data.errors) {
+  if (res?.data?.errors) {
     logger.error(res.data.errors);
     if (res.data.errors[0].type === "NOT_FOUND") {
       throw new CustomError(
@@ -281,7 +292,11 @@ const fetchStats = async (
     );
   }
 
-  const user = res.data.data.user;
+  const user = res?.data?.data?.user;
+
+  if (!user) {
+    throw new CustomError("Could not fetch user.", CustomError.USER_NOT_FOUND);
+  }
 
   stats.name = user.name || user.login;
 

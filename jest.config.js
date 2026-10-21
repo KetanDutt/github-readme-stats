@@ -9,4 +9,12 @@ export default {
     "<rootDir>/node_modules/",
     "<rootDir>/tests/E2E/",
   ],
+  coverageThreshold: {
+    global: {
+      statements: 90,
+      branches: 80,
+      functions: 90,
+      lines: 90,
+    },
+  },
 };

@@ -3,6 +3,17 @@
 This document outlines security procedures and general policies for the
 GitHub Readme Stats project.
 
+- [Supported scope](#supported-scope)
+- [Reporting a Vulnerability](#reporting-a-vulnerability)
+- [Disclosure Policy](#disclosure-policy)
+
+## Supported scope
+
+Security reports are accepted for the current `master` branch and the latest
+release. Self-hosted instances are the responsibility of their operators; see
+[`docs/security.md`](./docs/security.md) for the hardening checklist (token
+handling, whitelists, HTTP headers, SSRF protections and rate limiting).
+
 - [Reporting a Vulnerability](#reporting-a-vulnerability)
 - [Disclosure Policy](#disclosure-policy)
 

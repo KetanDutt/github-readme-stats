@@ -46,16 +46,32 @@ Interested in diving deeper into understanding how github-readme-stats works?
 
 ## Local Development
 
-To run & test github-readme-stats, you need to follow a few simple steps:-
-_(make sure you already have a [Vercel](https://vercel.com/) account)_
+### Option 1: bundled Express server (fastest)
 
-1.  Install [Vercel CLI](https://vercel.com/download).
-2.  Fork the repository and clone the code to your local machine.
-3.  Run `npm install` in the repository root.
-4.  Run the command `vercel` in the root and follow the steps there.
-5.  Run the command `vercel dev` to start a development server at <http://localhost:3000>.
-6.  Create a `.env` file in the root and add the following line `NODE_ENV=development`, this will disable caching for local development.
-7.  The cards will then be available from this local endpoint (i.e. `http://localhost:3000/api?username=anuraghazra`).
+1.  Fork the repository and clone the code to your local machine.
+2.  Run `npm install` in the repository root (Node.js 22+ is required).
+3.  Copy `.env.example` to `.env` and add at least one `PAT_1=...` token.
+4.  Run `npm run dev` to start the server in watch mode at <http://localhost:9000>
+    (`NODE_ENV=development`, so caching is disabled).
+5.  Cards are available from `http://localhost:9000/api?username=anuraghazra`;
+    the dashboard at `/` lists every endpoint and shows live previews.
+
+### Option 2: Vercel CLI
+
+1.  Install [Vercel CLI](https://vercel.com/download) and sign in.
+2.  Run `vercel` in the repository root and follow the prompts.
+3.  Add `NODE_ENV=development` to `.env` to disable caching locally.
+4.  Run `vercel dev` to start a development server at <http://localhost:3000>.
+5.  Cards are available from `http://localhost:3000/api?username=anuraghazra`.
+
+### Documentation
+
+Whenever you change behaviour, configuration or the API surface, update the
+matching document in [`docs/`](./docs). In particular:
+
+- [`docs/api-reference.md`](./docs/api-reference.md) for query parameters and endpoints,
+- [`docs/configuration.md`](./docs/configuration.md) for environment variables,
+- [`docs/architecture.md`](./docs/architecture.md) when adding modules or cards.
 
 > [!NOTE]
 > This project has no CI. Tests, linting, formatting, and benchmarks must be run locally (see [No CI and No GitHub Actions](#no-ci-and-no-github-actions-project-policy)).

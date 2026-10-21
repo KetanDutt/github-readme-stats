@@ -3,17 +3,17 @@
 import { renderRepoCard } from "../src/cards/repo.js";
 import { guardAccess } from "../src/common/access.js";
 import {
+  buildErrorCard,
+  buildInputErrorCard,
+  setSvgContentType,
+} from "../src/common/api.js";
+import {
   CACHE_TTL,
   resolveCacheSeconds,
   setCacheHeaders,
   setErrorCacheHeaders,
 } from "../src/common/cache.js";
-import {
-  MissingParamError,
-  retrieveSecondaryMessage,
-} from "../src/common/error.js";
-import { parseBoolean } from "../src/common/ops.js";
-import { renderError } from "../src/common/render.js";
+import { normalizeString, parseBoolean } from "../src/common/ops.js";
 import { fetchRepo } from "../src/fetchers/repo.js";
 import { isLocaleAvailable } from "../src/translations.js";
 
@@ -36,37 +36,31 @@ export default async (req, res) => {
     description_lines_count,
   } = req.query;
 
-  res.setHeader("Content-Type", "image/svg+xml");
+  setSvgContentType(res);
+
+  const normalizedLocale = normalizeString(locale);
+
+  const colors = {
+    title_color,
+    text_color,
+    bg_color,
+    border_color,
+    theme,
+  };
 
   const access = guardAccess({
     res,
     id: username,
     type: "username",
-    colors: {
-      title_color,
-      text_color,
-      bg_color,
-      border_color,
-      theme,
-    },
+    colors,
   });
   if (!access.isPassed) {
     return access.result;
   }
 
-  if (locale && !isLocaleAvailable(locale)) {
+  if (normalizedLocale && !isLocaleAvailable(normalizedLocale)) {
     return res.send(
-      renderError({
-        message: "Something went wrong",
-        secondaryMessage: "Language not found",
-        renderOptions: {
-          title_color,
-          text_color,
-          bg_color,
-          border_color,
-          theme,
-        },
-      }),
+      buildInputErrorCard({ colors, secondaryMessage: "Locale not found" }),
     );
   }
 
@@ -92,39 +86,12 @@ export default async (req, res) => {
         border_radius,
         border_color,
         show_owner: parseBoolean(show_owner),
-        locale: locale ? locale.toLowerCase() : null,
+        locale: normalizedLocale ? normalizedLocale.toLowerCase() : null,
         description_lines_count,
       }),
     );
   } catch (err) {
     setErrorCacheHeaders(res);
-    if (err instanceof Error) {
-      return res.send(
-        renderError({
-          message: err.message,
-          secondaryMessage: retrieveSecondaryMessage(err),
-          renderOptions: {
-            title_color,
-            text_color,
-            bg_color,
-            border_color,
-            theme,
-            show_repo_link: !(err instanceof MissingParamError),
-          },
-        }),
-      );
-    }
-    return res.send(
-      renderError({
-        message: "An unknown error occurred",
-        renderOptions: {
-          title_color,
-          text_color,
-          bg_color,
-          border_color,
-          theme,
-        },
-      }),
-    );
+    return res.send(buildErrorCard({ err, colors }));
   }
 };

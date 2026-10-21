@@ -79,7 +79,11 @@ const fetchRepo = async (username, reponame) => {
 
   let res = await retryer(fetcher, { login: username, repo: reponame });
 
-  const data = res.data.data;
+  const data = res?.data?.data;
+
+  if (!data) {
+    throw new Error("Not found");
+  }
 
   if (!data.user && !data.organization) {
     throw new Error("Not found");

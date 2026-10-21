@@ -4,6 +4,7 @@ import axios from "axios";
 import MockAdapter from "axios-mock-adapter";
 import wakatime from "../api/wakatime.js";
 import { renderWakatimeCard } from "../src/cards/wakatime.js";
+import { renderError } from "../src/common/render.js";
 import { CACHE_TTL, DURATIONS } from "../src/common/cache.js";
 
 const wakaTimeData = {
@@ -141,6 +142,55 @@ describe("Test /api/wakatime", () => {
       `max-age=${CACHE_TTL.WAKATIME_CARD.DEFAULT}, ` +
         `s-maxage=${CACHE_TTL.WAKATIME_CARD.DEFAULT}, ` +
         `stale-while-revalidate=${DURATIONS.ONE_DAY}`,
+    );
+  });
+
+  it("should render error card for an unsupported layout", async () => {
+    const username = "anuraghazra";
+    const req = { query: { username, layout: "grid" } };
+    const res = { setHeader: jest.fn(), send: jest.fn() };
+
+    await wakatime(req, res);
+
+    expect(res.send).toHaveBeenCalledWith(
+      renderError({
+        message: "Something went wrong",
+        secondaryMessage: "Incorrect layout input",
+        renderOptions: { show_repo_link: false },
+      }),
+    );
+  });
+
+  it("should render error card for an unsupported display_format", async () => {
+    const username = "anuraghazra";
+    const req = { query: { username, display_format: "minutes" } };
+    const res = { setHeader: jest.fn(), send: jest.fn() };
+
+    await wakatime(req, res);
+
+    expect(res.send).toHaveBeenCalledWith(
+      renderError({
+        message: "Something went wrong",
+        secondaryMessage: "Incorrect display_format input",
+        renderOptions: { show_repo_link: false },
+      }),
+    );
+  });
+
+  it("should parse hide_progress as a boolean", async () => {
+    const username = "anuraghazra";
+    const req = { query: { username, hide_progress: "true" } };
+    const res = { setHeader: jest.fn(), send: jest.fn() };
+    mock
+      .onGet(
+        `https://wakatime.com/api/v1/users/${username}/stats?is_including_today=true`,
+      )
+      .reply(200, wakaTimeData);
+
+    await wakatime(req, res);
+
+    expect(res.send).toHaveBeenCalledWith(
+      renderWakatimeCard(wakaTimeData.data, { hide_progress: true }),
     );
   });
 });

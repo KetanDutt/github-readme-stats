@@ -1,21 +1,29 @@
 // @ts-check
 
 import { renderWakatimeCard } from "../src/cards/wakatime.js";
-import { renderError } from "../src/common/render.js";
-import { fetchWakatimeStats } from "../src/fetchers/wakatime.js";
-import { isLocaleAvailable } from "../src/translations.js";
+import { guardAccess } from "../src/common/access.js";
+import {
+  buildErrorCard,
+  buildInputErrorCard,
+  setSvgContentType,
+} from "../src/common/api.js";
 import {
   CACHE_TTL,
   resolveCacheSeconds,
   setCacheHeaders,
   setErrorCacheHeaders,
 } from "../src/common/cache.js";
-import { guardAccess } from "../src/common/access.js";
 import {
-  MissingParamError,
-  retrieveSecondaryMessage,
-} from "../src/common/error.js";
-import { parseArray, parseBoolean } from "../src/common/ops.js";
+  normalizeString,
+  parseArray,
+  parseBoolean,
+  parseIntOrUndefined,
+} from "../src/common/ops.js";
+import { fetchWakatimeStats } from "../src/fetchers/wakatime.js";
+import { isLocaleAvailable } from "../src/translations.js";
+
+const LAYOUTS = ["compact", "normal"];
+const DISPLAY_FORMATS = ["time", "percent"];
 
 // @ts-ignore
 export default async (req, res) => {
@@ -44,36 +52,51 @@ export default async (req, res) => {
     disable_animations,
   } = req.query;
 
-  res.setHeader("Content-Type", "image/svg+xml");
+  setSvgContentType(res);
+
+  const normalizedLocale = normalizeString(locale);
+
+  const colors = {
+    title_color,
+    text_color,
+    bg_color,
+    border_color,
+    theme,
+  };
 
   const access = guardAccess({
     res,
     id: username,
     type: "wakatime",
-    colors: {
-      title_color,
-      text_color,
-      bg_color,
-      border_color,
-      theme,
-    },
+    colors,
   });
   if (!access.isPassed) {
     return access.result;
   }
 
-  if (locale && !isLocaleAvailable(locale)) {
+  if (normalizedLocale && !isLocaleAvailable(normalizedLocale)) {
     return res.send(
-      renderError({
-        message: "Something went wrong",
-        secondaryMessage: "Language not found",
-        renderOptions: {
-          title_color,
-          text_color,
-          bg_color,
-          border_color,
-          theme,
-        },
+      buildInputErrorCard({ colors, secondaryMessage: "Locale not found" }),
+    );
+  }
+
+  if (layout !== undefined && !LAYOUTS.includes(layout)) {
+    return res.send(
+      buildInputErrorCard({
+        colors,
+        secondaryMessage: "Incorrect layout input",
+      }),
+    );
+  }
+
+  if (
+    display_format !== undefined &&
+    !DISPLAY_FORMATS.includes(display_format)
+  ) {
+    return res.send(
+      buildInputErrorCard({
+        colors,
+        secondaryMessage: "Incorrect display_format input",
       }),
     );
   }
@@ -94,7 +117,7 @@ export default async (req, res) => {
         custom_title,
         hide_title: parseBoolean(hide_title),
         hide_border: parseBoolean(hide_border),
-        card_width: parseInt(card_width, 10),
+        card_width: parseIntOrUndefined(card_width),
         hide: parseArray(hide),
         line_height,
         title_color,
@@ -102,45 +125,18 @@ export default async (req, res) => {
         text_color,
         bg_color,
         theme,
-        hide_progress,
+        hide_progress: parseBoolean(hide_progress),
         border_radius,
         border_color,
-        locale: locale ? locale.toLowerCase() : null,
+        locale: normalizedLocale ? normalizedLocale.toLowerCase() : null,
         layout,
-        langs_count,
+        langs_count: parseIntOrUndefined(langs_count),
         display_format,
         disable_animations: parseBoolean(disable_animations),
       }),
     );
   } catch (err) {
     setErrorCacheHeaders(res);
-    if (err instanceof Error) {
-      return res.send(
-        renderError({
-          message: err.message,
-          secondaryMessage: retrieveSecondaryMessage(err),
-          renderOptions: {
-            title_color,
-            text_color,
-            bg_color,
-            border_color,
-            theme,
-            show_repo_link: !(err instanceof MissingParamError),
-          },
-        }),
-      );
-    }
-    return res.send(
-      renderError({
-        message: "An unknown error occurred",
-        renderOptions: {
-          title_color,
-          text_color,
-          bg_color,
-          border_color,
-          theme,
-        },
-      }),
-    );
+    return res.send(buildErrorCard({ err, colors }));
   }
 };

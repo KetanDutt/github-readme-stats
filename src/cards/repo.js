@@ -160,6 +160,10 @@ const renderRepoCard = (repo, options = {}) => {
   card.disableAnimations();
   card.setHideBorder(hide_border);
   card.setHideTitle(false);
+  card.setAccessibilityLabel({
+    title: header,
+    desc: `${desc}. ${langName}. ${starCount} stars, ${forkCount} forks.`,
+  });
   card.setCSS(`
     .description { font: 400 13px 'Segoe UI', Ubuntu, Sans-Serif; fill: ${colors.textColor} }
     .gray { font: 400 12px 'Segoe UI', Ubuntu, Sans-Serif; fill: ${colors.textColor} }

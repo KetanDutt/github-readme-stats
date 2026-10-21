@@ -39,7 +39,7 @@ const uptimeFetcher = (variables, token) => {
 };
 
 const getAllPATs = () => {
-  return Object.keys(process.env).filter((key) => /PAT_\d*$/.exec(key));
+  return Object.keys(process.env).filter((key) => /^PAT_\d+$/.test(key));
 };
 
 /**
@@ -80,12 +80,13 @@ const getPATInfo = async (fetcher, variables) => {
         };
         continue;
       } else if (isRateLimited) {
-        const date1 = new Date();
-        const date2 = new Date(response.data?.data?.rateLimit?.resetAt);
+        const resetAt = response.data?.data?.rateLimit?.resetAt;
         details[pat] = {
           status: "exhausted",
           remaining: 0,
-          resetIn: dateDiff(date2, date1) + " minutes",
+          resetIn: resetAt
+            ? dateDiff(new Date(resetAt), new Date()) + " minutes"
+            : "unknown",
         };
       } else {
         details[pat] = {
@@ -154,6 +155,8 @@ export default async (_, res) => {
     // Throw error if something went wrong.
     logger.error(err);
     res.setHeader("Cache-Control", "no-store");
-    res.send("Something went wrong: " + err.message);
+    res.send(
+      "Something went wrong: " + (err instanceof Error ? err.message : err),
+    );
   }
 };

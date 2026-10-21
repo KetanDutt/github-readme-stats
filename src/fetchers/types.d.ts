@@ -41,8 +41,9 @@ export type StatsData = {
 
 export type Lang = {
   name: string;
-  color: string;
+  color: string | null;
   size: number;
+  count: number;
 };
 
 export type TopLangData = Record<string, Lang>;

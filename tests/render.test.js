@@ -3,7 +3,7 @@
 import { describe, expect, it } from "@jest/globals";
 import { queryByTestId } from "@testing-library/dom";
 import "@testing-library/jest-dom/jest-globals";
-import { renderError } from "../src/common/render.js";
+import { measureText, renderError } from "../src/common/render.js";
 
 describe("Test render.js", () => {
   it("should test renderError", () => {
@@ -23,5 +23,11 @@ describe("Test render.js", () => {
     expect(
       queryByTestId(document.body, "message")?.children[1],
     ).toHaveTextContent(/Secondary Message/gim);
+  });
+
+  it("measureText should handle empty input", () => {
+    expect(measureText("")).toBe(0);
+    expect(measureText(null)).toBe(0);
+    expect(measureText("stats")).toBeGreaterThan(0);
   });
 });

@@ -91,22 +91,27 @@ const fetchGist = async (id) => {
     throw new MissingParamError(["id"], "/api/gist?id=GIST_ID");
   }
   const res = await retryer(fetcher, { gistName: id });
-  if (res.data.errors) {
+  if (res?.data?.errors) {
     throw new Error(res.data.errors[0].message);
   }
-  if (!res.data.data.viewer.gist) {
+  if (!res?.data?.data?.viewer?.gist) {
     throw new Error("Gist not found");
   }
   const data = res.data.data.viewer.gist;
+  const files = data.files || {};
+  const firstFile = files[Object.keys(files)[0]];
+
+  if (!firstFile) {
+    throw new Error("Gist not found");
+  }
+
   return {
-    name: data.files[Object.keys(data.files)[0]].name,
-    nameWithOwner: `${data.owner.login}/${
-      data.files[Object.keys(data.files)[0]].name
-    }`,
+    name: firstFile.name,
+    nameWithOwner: `${data.owner?.login}/${firstFile.name}`,
     description: data.description,
-    language: calculatePrimaryLanguage(data.files),
-    starsCount: data.stargazerCount,
-    forksCount: data.forks.totalCount,
+    language: calculatePrimaryLanguage(files),
+    starsCount: data.stargazerCount ?? 0,
+    forksCount: data.forks?.totalCount ?? 0,
   };
 };
 

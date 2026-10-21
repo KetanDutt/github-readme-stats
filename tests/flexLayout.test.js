@@ -25,6 +25,21 @@ describe("flexLayout", () => {
     ]);
   });
 
+  it("should keep sizes aligned when an item is empty", () => {
+    const layout = flexLayout({
+      items: ["", "<text>2</text>", "<text>3</text>"],
+      gap: 10,
+      sizes: [50, 100, 20],
+    });
+
+    // The empty item is skipped, but the remaining items keep their own size
+    // instead of inheriting the size of the previous (hidden) item.
+    expect(layout).toStrictEqual([
+      `<g transform="translate(0, 0)"><text>2</text></g>`,
+      `<g transform="translate(110, 0)"><text>3</text></g>`,
+    ]);
+  });
+
   it("should work with sizes", () => {
     const layout = flexLayout({
       items: [

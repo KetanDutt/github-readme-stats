@@ -380,7 +380,8 @@ describe("Test /api/", () => {
     expect(res.send).toHaveBeenCalledWith(
       renderError({
         message: "Something went wrong",
-        secondaryMessage: "Language not found",
+        secondaryMessage: "Locale not found",
+        renderOptions: { show_repo_link: false },
       }),
     );
   });
@@ -407,6 +408,59 @@ describe("Test /api/", () => {
     // Received SVG output should not contain string "https://tiny.one/readme-stats"
     expect(res.send.mock.calls[0][0]).not.toContain(
       "https://tiny.one/readme-stats",
+    );
+  });
+
+  it("should render error card for an invalid commits_year", async () => {
+    const { req, res } = faker({ commits_year: "1999" }, data_stats);
+
+    await api(req, res);
+
+    expect(res.send).toHaveBeenCalledWith(
+      renderError({
+        message: "Something went wrong",
+        secondaryMessage: `Incorrect commits_year input, it must be between 2008 and ${new Date().getFullYear()}`,
+        renderOptions: { show_repo_link: false },
+      }),
+    );
+  });
+
+  it("should ignore an invalid number_precision", async () => {
+    const { req, res } = faker({ number_precision: "abc" }, data_stats);
+
+    await api(req, res);
+
+    expect(res.send).toHaveBeenCalledWith(
+      renderStatsCard(stats, { number_precision: undefined }),
+    );
+  });
+
+  it("should accept repeated hide parameters", async () => {
+    const { req, res } = faker(
+      // @ts-ignore
+      { hide: ["stars", "commits"] },
+      data_stats,
+    );
+
+    await api(req, res);
+
+    expect(res.send).toHaveBeenCalledWith(
+      renderStatsCard(stats, { hide: ["stars", "commits"] }),
+    );
+  });
+
+  it("should not crash when scalar query params are repeated", async () => {
+    const { req, res } = faker(
+      // @ts-ignore
+      { locale: ["en", "fr"], theme: ["dark", "merko"] },
+      data_stats,
+    );
+
+    await api(req, res);
+
+    expect(res.setHeader).toHaveBeenCalledWith("Content-Type", "image/svg+xml");
+    expect(res.send).toHaveBeenCalledWith(
+      renderStatsCard(stats, { locale: "en", theme: ["dark", "merko"] }),
     );
   });
 });

@@ -18,16 +18,26 @@ import { clampValue } from "./ops.js";
  */
 const flexLayout = ({ items, gap, direction, sizes = [] }) => {
   let lastSize = 0;
-  // filter() for filtering out empty strings
-  return items.filter(Boolean).map((item, i) => {
+  const layout = [];
+
+  // Filter out empty items while keeping each item paired with its own size.
+  // Filtering `items` alone would shift `sizes` for every item after the first
+  // empty one (e.g. repo cards without a primary language).
+  items.forEach((item, i) => {
+    if (!item) {
+      return;
+    }
+
     const size = sizes[i] || 0;
     let transform = `translate(${lastSize}, 0)`;
     if (direction === "column") {
       transform = `translate(0, ${lastSize})`;
     }
     lastSize += size + gap;
-    return `<g transform="${transform}">${item}</g>`;
+    layout.push(`<g transform="${transform}">${item}</g>`);
   });
+
+  return layout;
 };
 
 /**
@@ -111,7 +121,9 @@ const iconWithLabel = (icon, label, testid, iconSize) => {
         ${icon}
       </svg>
     `;
-  const text = `<text data-testid="${testid}" class="gray">${label}</text>`;
+  const text = `<text data-testid="${testid}" class="gray">${encodeHTML(
+    String(label),
+  )}</text>`;
   return flexLayout({ items: [iconSvg, text], gap: 20 }).join("");
 };
 
@@ -163,8 +175,19 @@ const renderError = ({
     theme,
   });
 
+  // The error message can contain text coming from upstream APIs (GraphQL
+  // errors), so make sure it can never break the SVG markup.
+  const primaryMessage = encodeHTML(String(message ?? ""));
+  const secondary = encodeHTML(String(secondaryMessage ?? ""));
+
+  // Gradients are only supported by the regular cards; error cards use the
+  // first stop of the gradient as a solid background.
+  const solidBgColor = Array.isArray(bgColor) ? `#${bgColor[1]}` : bgColor;
+
   return `
-    <svg width="${ERROR_CARD_LENGTH}"  height="120" viewBox="0 0 ${ERROR_CARD_LENGTH} 120" fill="${bgColor}" xmlns="http://www.w3.org/2000/svg">
+    <svg width="${ERROR_CARD_LENGTH}"  height="120" viewBox="0 0 ${ERROR_CARD_LENGTH} 120" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="errTitleId errDescId">
+    <title id="errTitleId">Error card</title>
+    <desc id="errDescId">${primaryMessage} ${secondary}</desc>
     <style>
     .text { font: 600 16px 'Segoe UI', Ubuntu, Sans-Serif; fill: ${titleColor} }
     .small { font: 600 12px 'Segoe UI', Ubuntu, Sans-Serif; fill: ${textColor} }
@@ -172,15 +195,15 @@ const renderError = ({
     </style>
     <rect x="0.5" y="0.5" width="${
       ERROR_CARD_LENGTH - 1
-    }" height="99%" rx="4.5" fill="${bgColor}" stroke="${borderColor}"/>
+    }" height="99%" rx="4.5" fill="${solidBgColor}" stroke="${borderColor}"/>
     <text x="25" y="45" class="text">Something went wrong!${
       UPSTREAM_API_ERRORS.includes(secondaryMessage) || !show_repo_link
         ? ""
         : " file an issue at https://tiny.one/readme-stats"
     }</text>
     <text data-testid="message" x="25" y="55" class="text small">
-      <tspan x="25" dy="18">${encodeHTML(message)}</tspan>
-      <tspan x="25" dy="18" class="gray">${secondaryMessage}</tspan>
+      <tspan x="25" dy="18">${primaryMessage}</tspan>
+      <tspan x="25" dy="18" class="gray">${secondary}</tspan>
     </text>
     </svg>
   `;
@@ -219,12 +242,12 @@ const measureText = (str, fontSize = 10) => {
 
   const avg = 0.5279276315789471;
   return (
-    str
+    String(str ?? "")
       .split("")
       .map((c) =>
         c.charCodeAt(0) < widths.length ? widths[c.charCodeAt(0)] : avg,
       )
-      .reduce((cur, acc) => acc + cur) * fontSize
+      .reduce((acc, cur) => acc + cur, 0) * fontSize
   );
 };
 

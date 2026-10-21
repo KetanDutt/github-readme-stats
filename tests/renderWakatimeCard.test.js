@@ -89,4 +89,46 @@ describe("Test Render WakaTime Card", () => {
     });
     expect(card).toMatchSnapshot();
   });
+
+  it("should not mutate the provided WakaTime data", () => {
+    const stats = JSON.parse(JSON.stringify(wakaTimeData));
+    const before = JSON.stringify(stats);
+
+    renderWakatimeCard(stats, { langs_count: 2 });
+
+    expect(JSON.stringify(stats)).toBe(before);
+  });
+
+  it("should not drop every language when langs_count is invalid", () => {
+    document.body.innerHTML = renderWakatimeCard(wakaTimeData.data, {
+      // @ts-ignore
+      langs_count: "abc",
+    });
+
+    expect(document.querySelector(".stat").textContent).not.toBe(
+      "No coding activity this week",
+    );
+    expect(queryByTestId(document.body, "TypeScript")).not.toBeNull();
+  });
+
+  it("should not produce NaN percentages when all languages are at 0%", () => {
+    const card = renderWakatimeCard(
+      {
+        ...wakaTimeData.data,
+        languages: [
+          {
+            name: "TypeScript",
+            percent: 0,
+            text: "0 secs",
+            hours: 0,
+            minutes: 1,
+          },
+          { name: "YAML", percent: 0, text: "0 secs", hours: 0, minutes: 1 },
+        ],
+      },
+      {},
+    );
+
+    expect(card).not.toContain("NaN");
+  });
 });

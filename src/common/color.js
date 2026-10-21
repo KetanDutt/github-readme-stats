@@ -37,7 +37,7 @@ const isValidGradient = (colors) => {
 const fallbackColor = (color, fallbackColor) => {
   let gradient = null;
 
-  let colors = color ? color.split(",") : [];
+  let colors = typeof color === "string" && color ? color.split(",") : [];
   if (colors.length > 1 && isValidGradient(colors)) {
     gradient = colors;
   }
@@ -83,8 +83,11 @@ const getCardColors = ({
   theme,
 }) => {
   const defaultTheme = themes["default"];
-  const isThemeProvided = theme !== null && theme !== undefined;
+  const isThemeProvided =
+    typeof theme === "string" &&
+    Object.prototype.hasOwnProperty.call(themes, theme);
 
+  // Unknown themes fall back to the default theme instead of crashing.
   // @ts-ignore
   const selectedTheme = isThemeProvided ? themes[theme] : defaultTheme;
 

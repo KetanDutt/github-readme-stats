@@ -48,6 +48,7 @@ const fetcher = (variables, token) => {
 
 /**
  * @typedef {import("./types").TopLangData} TopLangData Top languages data.
+ * @typedef {import("./types").Lang} Lang Language data.
  */
 
 /**
@@ -71,7 +72,7 @@ const fetchTopLanguages = async (
 
   const res = await retryer(fetcher, { login: username });
 
-  if (res.data.errors) {
+  if (res?.data?.errors) {
     logger.error(res.data.errors);
     if (res.data.errors[0].type === "NOT_FOUND") {
       throw new CustomError(
@@ -91,67 +92,65 @@ const fetchTopLanguages = async (
     );
   }
 
-  let repoNodes = res.data.data.user.repositories.nodes;
-  /** @type {Record<string, boolean>} */
-  let repoToHide = {};
-  const allExcludedRepos = [...exclude_repo, ...excludeRepositories];
+  const repoNodes = res?.data?.data?.user?.repositories?.nodes;
 
-  // populate repoToHide map for quick lookup
-  // while filtering out
-  if (allExcludedRepos) {
-    allExcludedRepos.forEach((repoName) => {
-      repoToHide[repoName] = true;
-    });
+  if (!Array.isArray(repoNodes)) {
+    throw new CustomError(
+      "Something went wrong while trying to retrieve the language data using the GraphQL API.",
+      CustomError.GRAPHQL_ERROR,
+    );
   }
 
-  // filter out repositories to be hidden
-  repoNodes = repoNodes
-    .sort((a, b) => b.size - a.size)
-    .filter((name) => !repoToHide[name.name]);
+  const allExcludedRepos = new Set([...exclude_repo, ...excludeRepositories]);
 
-  let repoCount = 0;
+  // Aggregate language sizes and the number of repositories each language
+  // appears in. Counting per repository (instead of per language edge run)
+  // keeps `count_weight` correct when repositories interleave languages.
+  /** @type {Record<string, Lang>} */
+  const languages = {};
 
-  repoNodes = repoNodes
-    .filter((node) => node.languages.edges.length > 0)
-    // flatten the list of language nodes
-    .reduce((acc, curr) => curr.languages.edges.concat(acc), [])
-    .reduce((acc, prev) => {
-      // get the size of the language (bytes)
-      let langSize = prev.size;
+  repoNodes.forEach((repo) => {
+    if (!repo || allExcludedRepos.has(repo.name)) {
+      return;
+    }
 
-      // if we already have the language in the accumulator
-      // & the current language name is same as previous name
-      // add the size to the language size and increase repoCount.
-      if (acc[prev.node.name] && prev.node.name === acc[prev.node.name].name) {
-        langSize = prev.size + acc[prev.node.name].size;
-        repoCount += 1;
-      } else {
-        // reset repoCount to 1
-        // language must exist in at least one repo to be detected
-        repoCount = 1;
+    const seenInRepo = new Set();
+
+    (repo.languages?.edges ?? []).forEach((edge) => {
+      const name = edge?.node?.name;
+      if (!name) {
+        return;
       }
-      return {
-        ...acc,
-        [prev.node.name]: {
-          name: prev.node.name,
-          color: prev.node.color,
-          size: langSize,
-          count: repoCount,
-        },
-      };
-    }, {});
 
-  Object.keys(repoNodes).forEach((name) => {
-    // comparison index calculation
-    repoNodes[name].size =
-      Math.pow(repoNodes[name].size, size_weight) *
-      Math.pow(repoNodes[name].count, count_weight);
+      if (!languages[name]) {
+        languages[name] = {
+          name,
+          color: edge.node.color,
+          size: 0,
+          count: 0,
+        };
+      }
+
+      languages[name].size += edge.size || 0;
+
+      if (!seenInRepo.has(name)) {
+        languages[name].count += 1;
+        seenInRepo.add(name);
+      }
+    });
   });
 
-  const topLangs = Object.keys(repoNodes)
-    .sort((a, b) => repoNodes[b].size - repoNodes[a].size)
+  Object.keys(languages).forEach((name) => {
+    // comparison index calculation
+    languages[name].size =
+      Math.pow(languages[name].size, size_weight) *
+      Math.pow(languages[name].count, count_weight);
+  });
+
+  const topLangs = Object.keys(languages)
+    .sort((a, b) => languages[b].size - languages[a].size)
     .reduce((result, key) => {
-      result[key] = repoNodes[key];
+      result[key] = languages[key];
       return result;
     }, {});
 

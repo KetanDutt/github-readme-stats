@@ -174,7 +174,8 @@ describe("Test /api/gist", () => {
     expect(res.send).toHaveBeenCalledWith(
       renderError({
         message: "Something went wrong",
-        secondaryMessage: "Language not found",
+        secondaryMessage: "Locale not found",
+        renderOptions: { show_repo_link: false },
       }),
     );
   });
