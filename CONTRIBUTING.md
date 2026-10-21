@@ -17,6 +17,25 @@ Pull requests are the best way to propose changes. We actively welcome your pull
 3.  If you've changed APIs, update the documentation.
 4.  Issue that pull request!
 
+## No CI and No GitHub Actions (Project Policy)
+
+> [!IMPORTANT]
+> This project intentionally has **no CI and no GitHub Actions workflows**. Do **not** add a `.github/workflows/` directory, a GitHub Actions workflow, or any other hosted CI configuration (Code Review bots, Codecov, OpenSSF Scorecard, CI-oriented Dependabot updates, etc.) to this project in the future. Pull requests that introduce CI or workflow files will be closed.
+
+All checks are run **locally** by contributors and maintainers. Before opening a pull request, run the same checks CI would have run:
+
+```bash
+npm test              # unit tests
+npm run test:e2e      # end-to-end tests
+npm run lint          # ESLint
+npm run format:check  # Prettier formatting check
+npm run bench         # benchmark tests
+```
+
+The pre-commit hook (`.husky/pre-commit`) already runs `npm test`, `npm run lint`, and `lint-staged` on every commit, so formatting and tests run automatically in your local environment.
+
+This policy is deliberate and permanent: it keeps the project free of workflow maintenance, third-party action pinning, `GITHUB_TOKEN`/permissions surface, and hosted runner costs. Local verification replaces CI — if a change cannot be validated locally, it should not be proposed.
+
 ## Under the hood of github-readme-stats
 
 Interested in diving deeper into understanding how github-readme-stats works?
@@ -39,6 +58,8 @@ _(make sure you already have a [Vercel](https://vercel.com/) account)_
 7.  The cards will then be available from this local endpoint (i.e. `http://localhost:3000/api?username=anuraghazra`).
 
 > [!NOTE]
+> This project has no CI. Tests, linting, formatting, and benchmarks must be run locally (see [No CI and No GitHub Actions](#no-ci-and-no-github-actions-project-policy)).
+>
 > You can debug the package code in [Vscode](https://code.visualstudio.com/) by using the [Node.js: Attach to process](https://code.visualstudio.com/docs/nodejs/nodejs-debugging#_setting-up-an-attach-configuration) debug option. You can also debug any tests using the [VSCode Jest extension](https://marketplace.visualstudio.com/items?itemName=Orta.vscode-jest). For more information, see https://github.com/jest-community/vscode-jest/issues/912.
 
 ## Themes Contribution
